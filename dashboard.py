@@ -9,6 +9,7 @@ import numpy
 import dataUtil
 
 app = dash.Dash()
+server = app.server
 app.config.suppress_callback_exceptions = True
 
 app.layout = html.Div([
