@@ -9,6 +9,8 @@ import numpy
 import dataUtil
 
 app = dash.Dash()
+# Bug: https://github.com/plotly/dash/issues/802
+app.css.config.serve_locally = False
 server = app.server
 app.config.suppress_callback_exceptions = True
 
