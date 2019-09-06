@@ -71,6 +71,8 @@ def getMultiGraph(dataframes,
         figure=go.Figure(
             data=scatters,
             layout=go.Layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
                 height=700,
                 autosize=True,
                 title=idString,
