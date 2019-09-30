@@ -48,6 +48,8 @@ def getGraph(dataframes,
         scatters.append(scatter)
 
     layout = go.Layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
         height=700,
         width = 1000,
         title=idString,
@@ -116,8 +118,6 @@ def getGraph(dataframes,
     return dcc.Graph(
         id=idString,
         figure=go.Figure(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
             data=scatters,
             layout=layout
         ),
