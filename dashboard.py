@@ -7,6 +7,12 @@ import renderer
 import tuttRenderer
 import numpy
 import dataUtil
+import csv
+import tempfile
+import os
+import flask
+import pandas as pd
+import xlsxwriter
 
 app = dash.Dash()
 # Bug: https://github.com/plotly/dash/issues/802
@@ -78,6 +84,44 @@ dashboard_layout = html.Div([
     ], className="row")
 ], style={'margin': '5%'})
 
+#API
+@server.route('/API/<string:building>/<string:type>/<string:format>')
+@server.route('/api/<string:building>/<string:type>/<string:format>')
+def serveAPI(building, type, format):
+    format = format.upper()
+    type = type.upper()
+    dataframe = getDataFrame(building, type)
+    if format == "HTML":
+        return dataframe.to_html()
+    elif format == "CSV":
+        name = building + "_" + type + ".csv"
+        return getCSV(dataframe, name)
+    elif format == "EXCEL":
+        name = building + "_" + type + ".xlsx"
+        print(name)
+        return getExcel(dataframe, name)
+    else:
+        return "Error: API Command not recognized"
+
+def getExcel(dataframe, name):
+    dataframe.to_excel(name)
+    response = flask.send_file(name, as_attachment=True, attachment_filename=name)
+    response.headers["filename"] = name
+    response.headers["Access-Control-Expose-Headers"] = 'filename'
+    return response
+
+def getCSV(dataframe, name):
+    dataframe.to_csv(name)
+    response = flask.send_file(name, as_attachment=True, attachment_filename=name)
+    response.headers["filename"] = name
+    response.headers["Access-Control-Expose-Headers"] = 'filename'
+    return response
+    '''
+    with tempfile.TemporaryDirectory() as tmpdirname:
+       dataframe.to_csv(os.path.join(tmpdirname, name))
+       ret_path = os.path.join(tmpdirname, name)
+       return flask.send_file(filename_or_fp=ret_path, mimetype='text/csv')
+    '''
 # Update the index
 @app.callback(dash.dependencies.Output('page-content', 'children'),
               [dash.dependencies.Input('url', 'pathname')])
@@ -102,14 +146,7 @@ def update_dataset_dropdown(n_clicks, dataType, tableValues, intervalValue):
         tableValues = tableValues[:5]
     isCumulative = intervalValue == 'CUM'
     for value in tableValues:
-        #Check if we must perfrom special behavior for Tutt Library dataset
-        dataframes = []
-        result = localDB.getTablesWithTypeForValue(dataType, value)
-        if result:
-            for table, type in zip(result['tables'], result['types']):
-                df = dataUtil.getDFWithCache(table, dataType, type)
-                dataframes.append(df)
-        summedDF = dataUtil.sumDataframes(dataframes)
+        summedDF = getDataFrame(value, dataType)
         if summedDF is not None:
             summedDF = dataUtil.getDFSum(summedDF, intervalValue)
             finalDfs.append(summedDF)
@@ -122,6 +159,18 @@ def update_dataset_dropdown(n_clicks, dataType, tableValues, intervalValue):
                                   yaxisLabel = labelsDict['yaxis'],
                                   xaxisLabel = labelsDict['xaxis'],
                                   cumulative = isCumulative)
+
+def getDataFrame(value, dataType):
+    dataframes = []
+    result = localDB.getTablesWithTypeForValue(dataType, value)
+    if result:
+        for table, type in zip(result['tables'], result['types']):
+            df = dataUtil.getDFWithCache(table, dataType, type)
+            dataframes.append(df)
+    return dataUtil.sumDataframes(dataframes)
+
+
+
 external_css = ["https://codepen.io/chriddyp/pen/brPBPO.css",
                 "https://www.coloradocollege.edu/global/css/2017/bootstrap.min.css",
                 'https://codepen.io/b_kirchman_cc/pen/QPOqOR.css',
