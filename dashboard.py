@@ -90,18 +90,22 @@ dashboard_layout = html.Div([
 def serveAPI(building, type, format):
     format = format.upper()
     type = type.upper()
+    building = building.upper()
     dataframe = getDataFrame(building, type)
-    if format == "HTML":
-        return dataframe.to_html()
-    elif format == "CSV":
-        name = building + "_" + type + ".csv"
-        return getCSV(dataframe, name)
-    elif format == "EXCEL":
-        name = building + "_" + type + ".xlsx"
-        print(name)
-        return getExcel(dataframe, name)
-    else:
-        return "Error: API Command not recognized"
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        if format == "HTML":
+            return dataframe.to_html()
+        elif format == "CSV":
+            name = building + "_" + type + ".csv"
+            name = os.path.join(tmpdirname, name)
+            return getCSV(dataframe, name)
+        elif format == "EXCEL":
+            name = building + "_" + type + ".xlsx"
+            name = os.path.join(tmpdirname, name)
+            print(name)
+            return getExcel(dataframe, name)
+        else:
+            return "Error: API Command not recognized"
 
 def getExcel(dataframe, name):
     dataframe.to_excel(name)
