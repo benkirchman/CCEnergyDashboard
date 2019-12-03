@@ -143,6 +143,11 @@ def getNameFromValue(value):
         if building['value'] == value:
             return building['label']
 
+def getTypeFromTypeValue(value):
+    for typ in dataTypeDict:
+        if typ['value'] == value:
+            return typ['label']
+
 def getTablesForValue(value):
     tables = []
     for table in tablesDict:

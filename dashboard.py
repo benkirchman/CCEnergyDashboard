@@ -76,13 +76,29 @@ dashboard_layout = html.Div([
                     options=localDB.intervalOptions,
                     value=localDB.intervalOptions[2]['value'],
                 ),
-                html.Button('Update', id='update-button')
+                html.Button('Update', id='update-button'),
+                html.A(
+                        'Download Data',
+                        id='download-link',
+                        href='',
+                        style={'display':'block'}
+                    )
             ])
             ], className="one-third column"),
 
         drc.Card([html.Div(id='graph')], className="two-thirds column"),
-    ], className="row")
+    ], className="row"),
 ], style={'margin': '5%'})
+
+@app.callback(
+    dash.dependencies.Output('download-link', 'href'),
+    [dash.dependencies.Input('data-type-radio', 'value'),
+     dash.dependencies.Input('dataset-dropdown', 'value'),
+     dash.dependencies.Input('data-interval-radio', 'value')  ]
+)
+def setDownlodLink(dataType, tableValues, intervalValue):
+    buildingValue = tableValues[0]
+    return '/API/' + buildingValue + '/' + dataType + '/' + 'EXCEL'
 
 #API
 @server.route('/API/<string:building>/<string:type>/<string:format>')
@@ -92,40 +108,33 @@ def serveAPI(building, type, format):
     type = type.upper()
     building = building.upper()
     dataframe = getDataFrame(building, type)
+    return getResponse(building, type, format, dataframe)
+
+def getResponse(building, type, format, dataframe):
     with tempfile.TemporaryDirectory() as tmpdirname:
+        name = localDB.getNameFromValue(building) + "_" + localDB.getTypeFromTypeValue(type)
+        tmpName = "Temp Dir Path"
         if format == "HTML":
             return dataframe.to_html()
         elif format == "CSV":
-            name = building + "_" + type + ".csv"
-            name = os.path.join(tmpdirname, name)
-            return getCSV(dataframe, name)
+            name = name + ".csv"
+            tmpName = os.path.join(tmpdirname, name)
+            dataframe.to_csv(tmpName)
         elif format == "EXCEL":
-            name = building + "_" + type + ".xlsx"
-            name = os.path.join(tmpdirname, name)
-            print(name)
-            return getExcel(dataframe, name)
+            name = name + ".xlsx"
+            tmpName = os.path.join(tmpdirname, name)
+            dataframe.to_excel(tmpName, index=False)
+        elif format == "JSON":
+            name = name + ".json"
+            tmpName = os.path.join(tmpdirname, name)
+            dataframe.to_json(tmpName, orient='records')
         else:
             return "Error: API Command not recognized"
+        response = flask.send_file(tmpName, as_attachment=True, attachment_filename=name)
+        response.headers["filename"] = name
+        response.headers["Access-Control-Expose-Headers"] = 'filename'
+        return response
 
-def getExcel(dataframe, name):
-    dataframe.to_excel(name)
-    response = flask.send_file(name, as_attachment=True, attachment_filename=name)
-    response.headers["filename"] = name
-    response.headers["Access-Control-Expose-Headers"] = 'filename'
-    return response
-
-def getCSV(dataframe, name):
-    dataframe.to_csv(name)
-    response = flask.send_file(name, as_attachment=True, attachment_filename=name)
-    response.headers["filename"] = name
-    response.headers["Access-Control-Expose-Headers"] = 'filename'
-    return response
-    '''
-    with tempfile.TemporaryDirectory() as tmpdirname:
-       dataframe.to_csv(os.path.join(tmpdirname, name))
-       ret_path = os.path.join(tmpdirname, name)
-       return flask.send_file(filename_or_fp=ret_path, mimetype='text/csv')
-    '''
 # Update the index
 @app.callback(dash.dependencies.Output('page-content', 'children'),
               [dash.dependencies.Input('url', 'pathname')])
