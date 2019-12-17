@@ -97,22 +97,52 @@ dashboard_layout = html.Div([
      dash.dependencies.Input('data-interval-radio', 'value')  ]
 )
 def setDownlodLink(dataType, tableValues, intervalValue):
-    buildingValue = tableValues[0]
-    return '/API/' + buildingValue + '/' + dataType + '/' + 'EXCEL'
+    buildingValues = getBuildingValuesFromList(tableValues)
+    return '/API/' + buildingValues + '/' + dataType + '/' + 'EXCEL'
 
-#API
-@server.route('/API/<string:building>/<string:type>/<string:format>')
-@server.route('/api/<string:building>/<string:type>/<string:format>')
-def serveAPI(building, type, format):
+def getBuildingValuesFromList(listOfVals):
+    newString = ""
+    for val in listOfVals:
+        newString += val
+        newString += ","
+    # Strip the last comma
+    return newString[:-1]
+
+#API not case sensitive
+@server.route('/API/<string:buildings>/<string:type>/<string:format>')
+@server.route('/api/<string:buildings>/<string:type>/<string:format>')
+def serveAPI(buildings, type, format):
     format = format.upper()
     type = type.upper()
-    building = building.upper()
-    dataframe = getDataFrame(building, type)
-    return getResponse(building, type, format, dataframe)
-
-def getResponse(building, type, format, dataframe):
-    with tempfile.TemporaryDirectory() as tmpdirname:
+    buildings = buildings.upper()
+    buildings = buildings.split(',')
+    name = None
+    if len(buildings) > 1:
+        dataframe = buildCombinedDataframe(buildings, type)
+        name = "Buildings_" + localDB.getTypeFromTypeValue(type) + "_Data"
+    else:
+        building = buildings[0]
+        dataframe = getDataFrame(building, type)
         name = localDB.getNameFromValue(building) + "_" + localDB.getTypeFromTypeValue(type)
+    return getResponse(name, type, format, dataframe)
+
+# is it bad to write code that relies on the boolean value of a
+# dataframe?
+def buildCombinedDataframe(buildingCodeList, type):
+    df = None
+    for buildingCode in buildingCodeList:
+        dfToAdd = getDataFrame(buildingCode, type)
+        if df is None:
+            df = pd.DataFrame(dfToAdd['timeStamp'])
+        listOfVals = dfToAdd['value'].tolist()
+        buildingNameString = localDB.getNameFromValue(buildingCode)
+        # https://stackoverflow.com/questions/42382263/valueerror-length-of-values-does-not-match-length-of-index-pandas-dataframe-u
+        df[buildingNameString] = pd.Series(listOfVals)
+    return df
+
+
+def getResponse(name, type, format, dataframe):
+    with tempfile.TemporaryDirectory() as tmpdirname:
         tmpName = "Temp Dir Path"
         if format == "HTML":
             return dataframe.to_html()
